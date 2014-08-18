@@ -70,16 +70,29 @@ import java.util.List;
 
 import com.google.android.gms.ads.*;
 
+import com.google.android.gms.analytics.GoogleAnalytics;
+import com.google.android.gms.analytics.Tracker;
+import com.google.android.gms.analytics.HitBuilders;
+import com.google.android.gms.analytics.Logger;
+
+import java.util.HashMap;
+
+
 
 public class MainActivity extends Activity implements UpdaterListener, DownloadCallback,
         OnItemClickListener {
 
-    private static final String CHANGELOG = "https://plus.google.com/app/basic/communities/101008638920580274588";
+    private static final String CHANGELOG = "http://dwnld.aicp-rom.com";
     private static final String GOOGLEPLUS = "https://plus.google.com/u/0/communities/101008638920580274588";
     private static final String STATE = "STATE";
+    //Logging TAG
+    private static final String TAG = "OTA";
+
 
     private AdView adView;
     private static final String AD_UNIT_ID = "ca-app-pub-8304196545054985/9751051934";
+    private static final String PROPERTY_ID = "UA-48128535-4";
+    private Tracker t;
 
     public static final int STATE_UPDATES = 0;
     public static final int STATE_DOWNLOAD = 1;
@@ -134,6 +147,14 @@ public class MainActivity extends Activity implements UpdaterListener, DownloadC
 
         // Start loading the ad in the background.
         adView.loadAd(adRequest);
+
+        //Get an Analytics 
+        GoogleAnalytics.getInstance(this).newTracker(PROPERTY_ID);
+        GoogleAnalytics.getInstance(this).getLogger().setLogLevel(Logger.LogLevel.VERBOSE);
+        t = getTracker(TrackerName.APP_TRACKER);
+        t.setScreenName("AICP_OTA");
+        t.send(new HitBuilders.AppViewBuilder().build());
+
 
         ActionBar actionBar = getActionBar();
         actionBar.setDisplayHomeAsUpEnabled(true);
@@ -264,6 +285,8 @@ public class MainActivity extends Activity implements UpdaterListener, DownloadC
         }
     }
 
+   // Finish onCreate Activity
+
     public void setDownloadCallback(DownloadCallback downloadCallback) {
         mDownloadCallback = downloadCallback;
     }
@@ -285,6 +308,29 @@ public class MainActivity extends Activity implements UpdaterListener, DownloadC
                 break;
         }
     }
+
+    public enum TrackerName {
+    APP_TRACKER, // Tracker used only in this app.
+    GLOBAL_TRACKER, 
+  }
+ 
+ HashMap<TrackerName, Tracker> mTrackers = new HashMap<TrackerName, Tracker>();
+
+  public MainActivity() {
+    super();
+  }
+
+  synchronized Tracker getTracker(TrackerName trackerId) {
+    if (!mTrackers.containsKey(trackerId)) {
+      GoogleAnalytics analytics = GoogleAnalytics.getInstance(this);
+      Tracker t = (trackerId == TrackerName.APP_TRACKER) ? analytics.newTracker(PROPERTY_ID)
+          : (trackerId == TrackerName.GLOBAL_TRACKER) ? analytics.newTracker(PROPERTY_ID)
+               : analytics.newTracker(PROPERTY_ID);
+      mTrackers.put(trackerId, t);
+
+    }
+    return mTrackers.get(trackerId);
+  }
 
     @Override
     protected void onPostCreate(Bundle savedInstanceState) {
@@ -506,6 +552,8 @@ public class MainActivity extends Activity implements UpdaterListener, DownloadC
 
   @Override
   public void onDestroy() {
+    // Stop the analytics tracking
+    GoogleAnalytics.getInstance(this).reportActivityStop(this);
     // Destroy the AdView.
     if (adView != null) {
       adView.destroy();
